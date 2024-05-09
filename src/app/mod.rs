@@ -1,3 +1,4 @@
+use capi_rs_platform_utils::{get_mouse_located_monitor_handle, get_mouse_located_monitor_screen};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -10,12 +11,21 @@ pub struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let monitor_handle =
-            capi_rs_platform_utils::monitor::get_mouse_located_monitor_handle(&event_loop);
-        let win_attr = Window::default_attributes()
-            .with_fullscreen(Some(Fullscreen::Borderless(monitor_handle)));
-        let win = event_loop.create_window(win_attr).unwrap();
-        self.window = Some(win);
+        let monitor_handle = get_mouse_located_monitor_handle(&event_loop);
+        let win: Option<Window> = if let Some(monitor_handle) = monitor_handle {
+            let img = get_mouse_located_monitor_screen(monitor_handle.clone());
+            if let Some(img) = img {
+                let win_attr = Window::default_attributes()
+                    .with_fullscreen(Some(Fullscreen::Borderless(Some(monitor_handle))));
+                let win = event_loop.create_window(win_attr).unwrap();
+                Some(win)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        self.window = win;
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
