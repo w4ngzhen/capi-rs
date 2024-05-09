@@ -1,4 +1,3 @@
-use crate::platform_utils;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -11,7 +10,8 @@ pub struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let monitor_handle = platform_utils::monitor::get_mouse_located_monitor_handle(&event_loop);
+        let monitor_handle =
+            capi_rs_platform_utils::monitor::get_mouse_located_monitor_handle(&event_loop);
         let win_attr = Window::default_attributes()
             .with_fullscreen(Some(Fullscreen::Borderless(monitor_handle)));
         let win = event_loop.create_window(win_attr).unwrap();

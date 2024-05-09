@@ -1,0 +1,15 @@
+[package]
+name = "capi_rs_platform_utils"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# winit共享工作空间的依赖
+winit.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.5.1" }
+objc2-foundation = { version = "0.2.0", features = ["NSThread"] }
+objc2-app-kit = { version = "0.2.0" }
