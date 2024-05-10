@@ -1,5 +1,6 @@
-use crate::monitor::MonitorImage;
-use core_foundation::base::{CFAllocatorRef, TCFType};
+use std::ffi::c_uint;
+
+use core_foundation::base::{CFAllocatorRef, CFRange, TCFType};
 use core_foundation::data::{CFDataRef, CFMutableDataRef};
 use core_foundation::dictionary::CFDictionaryRef;
 use core_foundation::string::{CFString, CFStringRef};
@@ -8,7 +9,8 @@ use objc2::msg_send;
 use objc2::rc::Id;
 use objc2_app_kit::{NSEvent, NSScreen};
 use objc2_foundation::{MainThreadMarker, NSPointInRect, NSString};
-use std::ffi::c_uint;
+
+use crate::monitor::MonitorImageWrapper;
 
 pub fn get_mouse_located_monitor_id() -> Option<c_uint> {
     unsafe {
@@ -39,31 +41,38 @@ pub fn get_mouse_located_monitor_id() -> Option<c_uint> {
     return None;
 }
 
-pub fn get_monitor_screen_image_native(native_id: c_uint) -> Option<MonitorImage> {
+pub fn get_monitor_screen_image_native(native_id: c_uint) -> Option<MonitorImageWrapper> {
     unsafe {
         let img_ref = CGDisplayCreateImage(native_id);
         if img_ref.is_null() {
             return None;
         }
         let (width, height) = (CGImageGetWidth(img_ref), CGImageGetHeight(img_ref));
-        let pixel_data = CFDataCreateMutable(std::ptr::null(), 0);
-        if pixel_data.is_null() {
+        let formated_img_data = CFDataCreateMutable(std::ptr::null(), 0);
+        if formated_img_data.is_null() {
             return None;
         }
-        let ut_type = CFString::from("kUTTypeJPEG").as_concrete_TypeRef();
-        if ut_type.is_null() {
-            return None;
-        }
-        let data_dest = CGImageDestinationCreateWithData(pixel_data, ut_type, 1, std::ptr::null());
+        // kUTTypeJPEG -> "public. jpeg"
+        let ut_type = CFString::from("public.jpeg").as_concrete_TypeRef();
+        let data_dest =
+            CGImageDestinationCreateWithData(formated_img_data, ut_type, 1, std::ptr::null());
         if data_dest.is_null() {
             return None;
         }
         CGImageDestinationAddImage(data_dest, img_ref, std::ptr::null());
         CGImageDestinationFinalize(data_dest);
-        let bytes_len = CFDataGetLength(pixel_data);
+        let bytes_len = CFDataGetLength(formated_img_data);
         #[cfg(debug_assertions)]
         println!("image len: {}", bytes_len);
-        return Some(MonitorImage::new(width, height, None));
+        // get formated image bytes
+        let mut bytes = vec![0u8; bytes_len as usize];
+        CFDataGetBytes(
+            formated_img_data,
+            CFRange::init(0, bytes_len),
+            bytes.as_mut_ptr(),
+        );
+        let monitor_img_wrapper = MonitorImageWrapper::new(width, height, Some(bytes));
+        return Some(monitor_img_wrapper);
     }
     None
 }
@@ -78,7 +87,20 @@ extern "C" {
     fn CGImageGetHeight(image_ref: core_graphics::sys::CGImageRef) -> usize;
     fn CFDataCreateMutable(allocator: CFAllocatorRef, capacity: isize) -> CFMutableDataRef;
     fn CFDataGetLength(data_ref: CFDataRef) -> isize;
-
+    fn CFDataGetBytes(data_ref: CFDataRef, range: CFRange, buffer: *mut u8);
+    ///
+    /// **ffi CGImageDestinationCreateWithData**
+    ///
+    /// The parameter `ut_type` specifies the type identifier of the resulting image file.
+    /// Constants for `ut_type` are found in the LaunchServices framework header UTCoreTypes.h.
+    /// ```obj-c
+    /// extern const CFStringRef kUTTypeJPEG
+    /// // kUTTypeJPEG -> "public.jpeg"
+    /// extern const CFStringRef kUTTypePNG
+    /// // kUTTypePNG -> "public.png"
+    /// // ... etc.
+    /// ```
+    ///
     fn CGImageDestinationCreateWithData(
         mut_data_ref: CFMutableDataRef,
         ut_type: CFStringRef,
