@@ -1,8 +1,10 @@
 use crate::app::wgpu_ctx::WgpuCtx;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
+use winit::keyboard::Key::Named;
+use winit::keyboard::NamedKey;
 use winit::window::{Window, WindowId};
 
 mod wgpu_ctx;
@@ -44,6 +46,23 @@ impl<'window> ApplicationHandler for App<'window> {
             WindowEvent::RedrawRequested => {
                 if let Some(wgpu_ctx) = self.wgpu_ctx.as_mut() {
                     wgpu_ctx.draw();
+                }
+            }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        logical_key: Named(NamedKey::Space),
+                        state: ElementState::Released,
+                        repeat: false,
+                        ..
+                    },
+                ..
+            } => {
+                if let (Some(wgpu_ctx), Some(window)) =
+                    (self.wgpu_ctx.as_mut(), self.window.as_ref())
+                {
+                    wgpu_ctx.switch_pipeline();
+                    window.request_redraw();
                 }
             }
             _ => (),

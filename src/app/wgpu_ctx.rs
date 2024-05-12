@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::sync::Arc;
-use wgpu::RenderPipeline;
+use wgpu::{RenderPipeline, ShaderModule, ShaderSource, TextureFormat};
 use winit::window::Window;
 
 pub struct WgpuCtx<'window> {
@@ -10,6 +10,8 @@ pub struct WgpuCtx<'window> {
     device: wgpu::Device,
     queue: wgpu::Queue,
     render_pipeline: RenderPipeline,
+    render_pipeline2: RenderPipeline,
+    use_pipeline2: bool,
 }
 
 impl<'window> WgpuCtx<'window> {
@@ -50,38 +52,19 @@ impl<'window> WgpuCtx<'window> {
         // Load the shaders from disk
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
+            source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let shader2 = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
-            bind_group_layouts: &[],
-            push_constant_ranges: &[],
+            source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader2.wgsl"))),
         });
 
         let swap_chain_capabilities = surface.get_capabilities(&adapter);
         let swap_chain_format = swap_chain_capabilities.formats[0];
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: None,
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                compilation_options: Default::default(),
-                targets: &[Some(swap_chain_format.into())],
-            }),
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-        });
+        let render_pipeline = create_pipeline(&device, &shader, swap_chain_format);
+        let render_pipeline2 = create_pipeline(&device, &shader2, swap_chain_format);
 
         WgpuCtx {
             surface,
@@ -90,6 +73,8 @@ impl<'window> WgpuCtx<'window> {
             device,
             queue,
             render_pipeline,
+            render_pipeline2,
+            use_pipeline2: false,
         }
     }
 
@@ -130,10 +115,66 @@ impl<'window> WgpuCtx<'window> {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            rpass.set_pipeline(&self.render_pipeline);
+            if self.use_pipeline2 {
+                println!("render by pipeline2");
+                rpass.set_pipeline(&self.render_pipeline2);
+            } else {
+                println!("render by pipeline");
+                rpass.set_pipeline(&self.render_pipeline);
+            }
             rpass.draw(0..3, 0..1);
         }
         self.queue.submit(Some(encoder.finish()));
         frame.present();
     }
+
+    pub fn switch_pipeline(&mut self) {
+        println!("switch!");
+        self.use_pipeline2 = !self.use_pipeline2;
+    }
+}
+
+fn create_pipeline(
+    device: &wgpu::Device,
+    shader: &ShaderModule,
+    swap_chain_format: TextureFormat,
+) -> RenderPipeline {
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: None,
+        bind_group_layouts: &[],
+        push_constant_ranges: &[],
+    });
+    return device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: None,
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: shader,
+            entry_point: "vs_main",
+            buffers: &[],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: shader,
+            entry_point: "fs_main",
+            compilation_options: Default::default(),
+            targets: &[Some(swap_chain_format.into())],
+        }),
+        primitive: wgpu::PrimitiveState {
+            // topology: wgpu::PrimitiveTopology::TriangleList,
+            // strip_index_format: None,
+            // front_face: wgpu::FrontFace::Ccw,
+            // cull_mode: Some(wgpu::Face::Back),
+            // // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+            // // or Features::POLYGON_MODE_POINT
+            // polygon_mode: wgpu::PolygonMode::Fill,
+            // // Requires Features::DEPTH_CLIP_CONTROL
+            // unclipped_depth: false,
+            // // Requires Features::CONSERVATIVE_RASTERIZATION
+            // conservative: false,
+            ..Default::default()
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+    });
 }
