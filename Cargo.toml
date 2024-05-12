@@ -7,6 +7,8 @@ edition = "2021"
 # 共享工作空间的依赖winit
 winit.workspace = true
 capi_rs_platform_utils = { path = "./crates/capi_rs_platform_utils" }
+wgpu = { version = "0.20.0" }
+pollster = { version = "0.3" }
 
 [workspace]
 members = ["crates/*"]

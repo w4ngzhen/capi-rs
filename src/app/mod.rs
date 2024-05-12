@@ -1,55 +1,50 @@
-use capi_rs_platform_utils::{get_mouse_located_monitor_handle, get_mouse_located_monitor_screen};
+use crate::app::wgpu_ctx::WgpuCtx;
+use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
-use winit::window::{Fullscreen, Window, WindowId};
+use winit::window::{Window, WindowId};
+
+mod wgpu_ctx;
 
 #[derive(Default)]
-pub struct App {
-    window: Option<Window>,
+pub struct App<'window> {
+    window: Option<Arc<Window>>,
+    wgpu_ctx: Option<WgpuCtx<'window>>,
 }
 
-impl ApplicationHandler for App {
+impl<'window> ApplicationHandler for App<'window> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let monitor_handle = get_mouse_located_monitor_handle(&event_loop);
-        let win: Option<Window> = if let Some(monitor_handle) = monitor_handle {
-            let monitor_img_wrapper = get_mouse_located_monitor_screen(monitor_handle.clone());
-            if let Some(monitor_img_wrapper) = monitor_img_wrapper {
-                monitor_img_wrapper.write_to_file("test.jpeg");
-                let win_attr = Window::default_attributes()
-                    .with_fullscreen(Some(Fullscreen::Borderless(Some(monitor_handle))));
-                let win = event_loop.create_window(win_attr).unwrap();
-                Some(win)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-        self.window = win;
+        if self.window.is_none() {
+            let win_attr = Window::default_attributes().with_title("capi-rs");
+            let window = Arc::new(
+                event_loop
+                    .create_window(win_attr)
+                    .expect("create window err."),
+            );
+            self.window = Some(window.clone());
+            let wgpu_ctx = WgpuCtx::new(window.clone());
+            self.wgpu_ctx = Some(wgpu_ctx);
+        }
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => {
-                println!("The close button was pressed; stopping");
                 event_loop.exit();
             }
+            WindowEvent::Resized(new_size) => {
+                if let (Some(wgpu_ctx), Some(window)) =
+                    (self.wgpu_ctx.as_mut(), self.window.as_ref())
+                {
+                    wgpu_ctx.resize((new_size.width, new_size.height));
+                    window.request_redraw();
+                }
+            }
             WindowEvent::RedrawRequested => {
-                // Redraw the application.
-                //
-                // It's preferable for applications that do not render continuously to render in
-                // this event rather than in AboutToWait, since rendering in here allows
-                // the program to gracefully handle redraws requested by the OS.
-
-                // Draw.
-
-                // Queue a RedrawRequested event.
-                //
-                // You only need to call this if you've determined that you need to redraw in
-                // applications which do not always need to. Applications that redraw continuously
-                // can render here instead.
-                self.window.as_ref().unwrap().request_redraw();
+                if let Some(wgpu_ctx) = self.wgpu_ctx.as_mut() {
+                    wgpu_ctx.draw();
+                }
             }
             _ => (),
         }

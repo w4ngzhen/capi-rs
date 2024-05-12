@@ -8,7 +8,6 @@ use crate::app::App;
 mod app;
 
 fn main() -> Result<(), EventLoopError> {
-    // 创建事件循环
     let event_loop = EventLoop::new().unwrap();
     event_loop.set_control_flow(ControlFlow::Poll);
     let mut app = App::default();
