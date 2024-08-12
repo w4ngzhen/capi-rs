@@ -6,8 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# winit共享工作空间的依赖
-winit.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "0.5.1" }

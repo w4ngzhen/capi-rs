@@ -41,7 +41,7 @@ pub fn get_mouse_located_monitor_id() -> Option<c_uint> {
     return None;
 }
 
-pub fn get_monitor_screen_image_native(native_id: c_uint) -> Option<MonitorImageWrapper> {
+pub fn get_monitor_screenshot_native(native_id: c_uint) -> Option<MonitorImageWrapper> {
     unsafe {
         let img_ref = CGDisplayCreateImage(native_id);
         if img_ref.is_null() {
@@ -76,6 +76,15 @@ pub fn get_monitor_screen_image_native(native_id: c_uint) -> Option<MonitorImage
     }
     None
 }
+
+pub fn get_mouse_located_monitor_screenshot() -> Option<MonitorImageWrapper> {
+    if let Some(id) = get_mouse_located_monitor_id() {
+        get_monitor_screenshot_native(id)
+    } else {
+        None
+    }
+}
+
 
 enum CGImageDestination {}
 type CGImageDestinationRef = *mut CGImageDestination;

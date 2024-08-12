@@ -4,12 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# 共享工作空间的依赖winit
-winit.workspace = true
+bevy = { version = "0.14.1" }
 capi_rs_platform_utils = { path = "./crates/capi_rs_platform_utils" }
-wgpu = { version = "0.20.0" }
-pollster = { version = "0.3" }
-
 [workspace]
 members = ["crates/*"]
 resolver = "2"
@@ -19,4 +15,3 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-winit = { version = "0.30.0" }
